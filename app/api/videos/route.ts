@@ -2,17 +2,47 @@ import { NextRequest, NextResponse } from "next/server";
 
 const KEYWORDS = ["restoration", "bushcraft", "knife making"];
 
+const CACHE_HEADERS = { "Cache-Control": "public, s-maxage=86400, stale-while-revalidate=3600" };
+
 function publishedAfterFor(period: string): string {
-  const now = Date.now();
   const days: Record<string, number> = { today: 1, week: 7, month: 30, year: 365 };
   const d = days[period] ?? 7;
-  return new Date(now - d * 86400000).toISOString();
+  const JST = 9 * 3600 * 1000;
+  const nowJst = new Date(Date.now() + JST);
+  // JST 今日 00:00 の epoch（UTC 換算）
+  const startOfTodayJst =
+    Date.UTC(nowJst.getUTCFullYear(), nowJst.getUTCMonth(), nowJst.getUTCDate()) - JST;
+  return new Date(startOfTodayJst - (d - 1) * 86400000).toISOString();
 }
 
 function parseDuration(iso: string): number {
   const m = iso.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
   if (!m) return 0;
   return (+(m[1] ?? 0)) * 3600 + (+(m[2] ?? 0)) * 60 + (+(m[3] ?? 0));
+}
+
+async function isShort(id: string): Promise<"short" | "normal" | "unknown"> {
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const r = await fetch(`https://www.youtube.com/shorts/${id}`, {
+        redirect: "manual",
+        cache: "no-store",
+        headers: { "User-Agent": "Mozilla/5.0" },
+      });
+      if (r.status === 200) return "short";
+      if ([301, 302, 303, 307, 308].includes(r.status)) {
+        const loc = r.headers.get("location") ?? "";
+        if (loc.includes("/watch")) return "normal";
+        // consent 等の想定外リダイレクト → unknown（リトライへ）
+        continue;
+      }
+      // 403 / 429 / その他 → unknown（リトライへ）
+      continue;
+    } catch {
+      continue;
+    }
+  }
+  return "unknown";
 }
 
 export async function GET(req: NextRequest) {
@@ -62,7 +92,7 @@ export async function GET(req: NextRequest) {
       }
     }
     const ids = [...seen.keys()];
-    if (ids.length === 0) return NextResponse.json({ videos: [] });
+    if (ids.length === 0) return NextResponse.json({ videos: [] }, { headers: CACHE_HEADERS });
 
     // 詳細取得してShorts除外（Shortsは最長3分のため、3分超は通常動画とみなす）
     const chunks: string[][] = [];
@@ -81,26 +111,41 @@ export async function GET(req: NextRequest) {
         if (sec <= 60) shortIds.add(v.id);
       }
     }
-    // 3分以内の動画は /shorts/<id> で判定（Shortsなら200、通常動画は/watchへリダイレクト）
-    await Promise.all(
-      [...durations.entries()]
-        .filter(([id, sec]) => sec > 60 && sec <= 190 && !shortIds.has(id))
-        .map(async ([id]) => {
-          try {
-            const r = await fetch(`https://www.youtube.com/shorts/${id}`, {
-              next: { revalidate: 86400 },
-            });
-            // 同意画面など想定外の行き先の場合は除外しない（fail open）
-            if (r.url.includes("/shorts/")) shortIds.add(id);
-          } catch {
-            /* 判定不能時は残す */
-          }
-        })
-    );
+    // durations に無い動画（videos.list に含まれなかった）は除外
+    let excludedUnknownDuration = 0;
+    for (const id of ids) {
+      if (!durations.has(id) && !shortIds.has(id)) {
+        shortIds.add(id);
+        excludedUnknownDuration++;
+      }
+    }
+    const excludedLe60 = [...shortIds].length - excludedUnknownDuration;
+    // 61〜190秒帯のみ /shorts/<id> で判定（リダイレクトを辿らず判定、unknown は除外）
+    const targets = [...durations.entries()]
+      .filter(([id, sec]) => sec > 60 && sec <= 190 && !shortIds.has(id))
+      .map(([id]) => id);
+    let excludedShort = 0;
+    let excludedUnknown = 0;
+    for (let i = 0; i < targets.length; i += 5) {
+      const chunk = targets.slice(i, i + 5);
+      const results = await Promise.all(chunk.map((id) => isShort(id)));
+      results.forEach((res, idx) => {
+        if (res === "short") {
+          shortIds.add(chunk[idx]);
+          excludedShort++;
+        } else if (res === "unknown") {
+          shortIds.add(chunk[idx]);
+          excludedUnknown++;
+        }
+      });
+    }
     const videos = [...seen.values()]
       .filter((v) => !shortIds.has(v.id) && !/#shorts/i.test(v.title + " " + v.desc))
       .sort((a, b) => +new Date(b.publishedAt) - +new Date(a.publishedAt));
-    return NextResponse.json({ videos });
+    console.log(
+      `period=${period} searched=${ids.length} excluded_le60=${excludedLe60} excluded_unknown_duration=${excludedUnknownDuration} excluded_short=${excludedShort} excluded_unknown=${excludedUnknown} final=${videos.length}`
+    );
+    return NextResponse.json({ videos }, { headers: CACHE_HEADERS });
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 });
   }
