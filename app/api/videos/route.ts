@@ -55,10 +55,10 @@ export async function GET(req: NextRequest) {
     // 3キーワード並列取得（期間×キーワード単位で1日キャッシュ）
     const lists = await Promise.all(
       KEYWORDS.map(async (q) => {
-        // 2ページ×50件で最大100件/キーワード取得（search 100unit×2リクエスト）
+        // 4ページ×50件で最大200件/キーワード取得（search 100unit×4リクエスト）
         const items: { id: { videoId: string }; snippet: { publishedAt: string; title: string; channelTitle: string; thumbnails: { medium?: { url: string } }; description: string } }[] = [];
         let pageToken = "";
-        for (let p = 0; p < 2; p++) {
+        for (let p = 0; p < 4; p++) {
           const url =
             `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&order=date` +
             `&maxResults=50&publishedAfter=${encodeURIComponent(publishedAfter)}` +

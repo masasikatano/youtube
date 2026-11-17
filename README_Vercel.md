@@ -23,6 +23,6 @@
 ## 注意
 
 - API キーは `.env` ではなく Vercel の Environment Variables に登録すること（`.env` は git 管理外）
-- 一覧取得は1日キャッシュ（`revalidate: 86400`）のため、quota 消費は1期間あたり約600unit/日程度
+- 一覧取得は1日キャッシュ（`revalidate: 86400`）のため、quota 消費は1期間あたり約1,200unit/日程度（search 4ページ×3キーワード分）
 - YouTube API の quota は日本時間17時頃にリセットされる
 - 開発モード（`npm run dev`）ではキャッシュが効かず、開くたびに quota を消費する
