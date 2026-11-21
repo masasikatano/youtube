@@ -13,7 +13,7 @@ const LABELS: { v: Period; label: string }[] = [
 declare global { interface Window { YT?: { Player: new (el: HTMLElement, opts: object) => { setPlaybackRate(r: number): void; getIframe(): HTMLIFrameElement } }; onYouTubeIframeAPIReady?: () => void } }
 
 export default function Home() {
-  const [period, setPeriod] = useState<Period>("week");
+  const [period, setPeriod] = useState<Period>("today");
   const [videos, setVideos] = useState<Video[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
