@@ -77,7 +77,7 @@ export default function Home() {
       <div className="mt-3 flex gap-2">
         {LABELS.map(({ v, label }) => (
           <button key={v} onClick={() => setPeriod(v)}
-            className={`rounded-full border px-4 py-1 text-sm ${period === v ? "bg-zinc-900 text-white" : "bg-white"}`}>
+            className={`rounded-full border px-4 py-1 text-sm ${period === v ? "bg-zinc-900 text-white" : "bg-white text-zinc-900"}`}>
             {label}
           </button>
         ))}
@@ -85,7 +85,7 @@ export default function Home() {
       {loading ? <p className="mt-6 text-sm">読み込み中…</p> : error ? <p className="mt-6 text-sm text-red-600">{error}</p> : videos.length === 0 ? <p className="mt-6 text-sm">動画がありません</p> : (
         <div className="mt-4 grid grid-cols-2 gap-4 md:grid-cols-3">
           {videos.map((v) => (
-            <button key={v.id} onClick={() => setOpen(v)} className="overflow-hidden rounded-lg border bg-white text-left">
+            <button key={v.id} onClick={() => setOpen(v)} className="overflow-hidden rounded-lg border bg-white text-left text-zinc-900">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={v.thumb} alt="" className="aspect-video w-full object-cover" />
               <div className="p-2">
@@ -101,11 +101,11 @@ export default function Home() {
           <div className="w-full max-w-3xl rounded-lg bg-black p-2" onClick={(e) => e.stopPropagation()}>
             <div ref={mountRef} className="aspect-video w-full [&_iframe]:h-full [&_iframe]:w-full" />
             <div className="flex gap-2 p-2">
-              <button onClick={fullscreen} className="rounded bg-white px-4 py-2 text-sm font-medium">全画面</button>
-              <button onClick={toggleRate} className={`rounded px-4 py-2 text-sm font-medium ${rate2x ? "bg-red-600 text-white" : "bg-white"}`}>
+              <button onClick={fullscreen} className="rounded bg-white px-4 py-2 text-sm font-medium text-zinc-900">全画面</button>
+              <button onClick={toggleRate} className={`rounded px-4 py-2 text-sm font-medium ${rate2x ? "bg-red-600 text-white" : "bg-white text-zinc-900"}`}>
                 {rate2x ? "2x ON" : "2x"}
               </button>
-              <button onClick={() => setOpen(null)} className="ml-auto rounded bg-white px-4 py-2 text-sm">閉じる</button>
+              <button onClick={() => setOpen(null)} className="ml-auto rounded bg-white px-4 py-2 text-sm text-zinc-900">閉じる</button>
             </div>
           </div>
         </div>
